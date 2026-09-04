@@ -3,8 +3,8 @@
     "zoom": {
       "type": "stdio",
       "command": "uv",
-      "args": ["run", "--directory", "${CLAUDE_PLUGIN_ROOT}", "zoom-mcp"],
-      "env": { "ZOOM_MCP_TIER": "high" }
+      "args": ["run", "--frozen", "--directory", "${CLAUDE_PLUGIN_ROOT}", "zoom-mcp"],
+      "env": { "ZOOM_MCP_TIER": "claude-code" }
     }
   }
 }

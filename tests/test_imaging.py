@@ -8,6 +8,7 @@ from zoom_mcp.imaging import Box, Budget
 
 HIGH = Budget.for_tier("high")
 STD = Budget.for_tier("standard")
+CC = Budget.for_tier("claude-code")
 
 
 def test_resized_size_unchanged_when_fits():
@@ -66,25 +67,47 @@ def test_flatten_transparency_to_white():
     assert imaging.flatten(img).getpixel((0, 0)) == (255, 255, 255)
 
 
-def test_crop_and_zoom_uses_full_resolution():
+def test_default_tier_is_claude_code():
+    assert imaging.DEFAULT_TIER == "claude-code"
+    assert CC.max_edge == 2000 and CC.zoom3x_max_box == 666
+
+
+def test_render_zoom_uses_full_resolution():
     img = Image.new("RGB", (400, 200), "white")
     for x in range(98, 103):
         for y in range(48, 53):
             img.putpixel((x, y), (255, 0, 0))
-    out = imaging.crop_and_zoom(img, Box(90, 40, 110, 60), HIGH)
+    r = imaging.render_zoom(img, Box(90, 40, 110, 60), HIGH)
+    out = r.image
     assert imaging.fits(out.width, out.height, HIGH)
-    # The red pixel sits at the centre of the crop after scaling.
     cx, cy = out.width // 2, out.height // 2
-    r, g, b = out.getpixel((cx, cy))
-    assert r > 200 and g < 100 and b < 100
+    red, g, b = out.getpixel((cx, cy))
+    assert red > 200 and g < 100 and b < 100
 
 
-def test_overview_never_upscales():
+def test_render_overview_never_upscales():
     img = Image.new("RGB", (300, 200), "white")
-    assert imaging.overview(img, HIGH).size == (300, 200)
+    assert imaging.render_overview(img, HIGH, grid=False).image.size == (300, 200)
     big = Image.new("RGB", (6000, 3000), "white")
-    o = imaging.overview(big, HIGH)
+    o = imaging.render_overview(big, HIGH, grid=False).image
     assert imaging.fits(o.width, o.height, HIGH) and o.width < 6000
+
+
+@pytest.mark.parametrize("budget", [CC, HIGH, STD])
+@pytest.mark.parametrize("box", [Box(0, 0, 1506, 1453), Box(0, 872, 753, 1453), Box(1205, 0, 1506, 1453)])
+def test_grid_canvas_fits_budget(budget, box):
+    img = Image.new("RGB", (1506, 1453), "white")
+    z = imaging.render_zoom(img, box, budget, grid=True).image
+    assert imaging.fits(z.width, z.height, budget), (z.size, budget)
+    assert z.width <= budget.max_edge and z.height <= budget.max_edge
+    o = imaging.render_overview(img, budget, grid=True).image
+    assert imaging.fits(o.width, o.height, budget), (o.size, budget)
+
+
+def test_grid_canvas_fits_budget_large_source():
+    big = Image.new("RGB", (6000, 3000), "white")
+    o = imaging.render_overview(big, CC, grid=True).image
+    assert imaging.fits(o.width, o.height, CC) and o.width <= 2000
 
 
 @pytest.mark.parametrize("span,expected", [(700, 100), (1200, 200), (3000, 500), (60, 10), (2000, 200), (1506, 200)])
@@ -92,17 +115,27 @@ def test_grid_step_round_numbers(span, expected):
     assert imaging.grid_step(span) == expected
 
 
-def test_draw_grid_lines_land_on_original_multiples():
+def test_draw_grid_lines_land_on_original_multiples_in_margined_canvas():
     img = Image.new("RGB", (1000, 500), "white")
     box = Box(230, 100, 730, 350)  # 500x250 original px, 2x scale
-    out = imaging.draw_grid(img, box, step=100, colour=(0, 0, 255))
-    # x=300 original -> (300-230)*2 = 140 rendered; sample away from labels and
-    # off the horizontal lines (rendered y=390 is original y=295).
-    assert out.getpixel((140, 390)) != (255, 255, 255)
-    assert out.getpixel((150, 390)) == (255, 255, 255)
-    # y=200 original -> (200-100)*2 = 200 rendered.
-    assert out.getpixel((900, 200)) != (255, 255, 255)
-    assert out.getpixel((900, 210)) == (255, 255, 255)
+    spec = imaging.grid_spec(box, img.size, step=100)
+    out = imaging.draw_grid(img, box, spec, colour=(0, 0, 255))
+    assert out.size == (1000 + spec.left, 500 + spec.top)
+    # x=300 original -> left + (300-230)*2 rendered; sample at rendered y=390 (original 295, off any line).
+    assert out.getpixel((spec.left + 140, spec.top + 390)) != (255, 255, 255)
+    assert out.getpixel((spec.left + 150, spec.top + 390)) == (255, 255, 255)
+    # y=200 original -> top + 200 rendered.
+    assert out.getpixel((spec.left + 900, spec.top + 200)) != (255, 255, 255)
+    assert out.getpixel((spec.left + 900, spec.top + 210)) == (255, 255, 255)
+    # Content area is untouched by labels: top-left content pixel stays white.
+    assert out.getpixel((spec.left + 5, spec.top + 5)) == (255, 255, 255)
+    assert spec.font_px >= 14 and spec.left >= 24 and spec.top >= 24
+
+
+def test_looks_like_fraction():
+    assert imaging.looks_like_fraction(0.1, 0.2, 0.5, 0.9)
+    assert not imaging.looks_like_fraction(0, 0, 0, 0)
+    assert not imaging.looks_like_fraction(0, 0, 100, 50)
 
 
 def test_encode_jpeg_roundtrip():

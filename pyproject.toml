@@ -6,8 +6,8 @@ readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Jack Vojak" }]
 dependencies = [
-    "mcp>=1.0",
-    "pillow>=10.0",
+    "mcp>=2,<3",
+    "pillow>=10.1",
 ]
 
 [project.scripts]

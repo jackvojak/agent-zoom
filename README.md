@@ -10,18 +10,24 @@ is an original pixel coordinate.
 ## Tools
 
 - `image_info(image_path, grid=True, grid_step=None)`: original width, height,
-  mode and file size, plus a downscaled overview with a grid labelled in original
-  pixels.
+  mode and file size, the recommended maximum zoom box width for 3x, plus a
+  downscaled overview with ruler margins labelled in original pixels.
 - `zoom(image_path, x1, y1, x2, y2, label=None, region=None, coords="pixel", grid=False)`:
-  crop and magnify a box. `region` presets: `top_left, top_right, bottom_left,
+  crop and magnify one box. `region` presets: `top_left, top_right, bottom_left,
   bottom_right, center, left_half, right_half, top_half, bottom_half, x_axis,
-  y_axis, legend_right, title`. `coords="fraction"` takes 0..1 values. Tiny boxes
-  are padded to a minimum side so the result is not a blur.
+  y_axis, legend_right, title`. `coords="fraction"` takes 0..1 values. Boxes
+  that look fractional in pixel mode are rejected with a hint. Tiny boxes are
+  padded to a minimum side so the result is not a blur.
+- `zoom_many(image_path, boxes, labels=None, coords="pixel", grid=False)`: up to
+  6 boxes in one call, each at the full budget, returned in order.
 
-Set `ZOOM_MCP_TIER=standard` for the 1568 px / 1568 token budget. Default is
-`high` (2576 px / 4784 tokens).
+`ZOOM_MCP_TIER` selects the budget: `claude-code` (default, 2000 px long edge,
+matches what Claude Code displays), `high` (2576 px) or `standard` (1568 px).
 
 ## Install
+
+`uv` must be on PATH for the plugin-style `.mcp.json` entry. Otherwise use the
+absolute path as in the personal entry below.
 
 ```bash
 uv sync
@@ -29,13 +35,14 @@ uv run pytest
 uv run python tests/smoke_client.py path/to/plot.png /tmp/zoom_out
 ```
 
-Claude Code `~/.claude.json` entry:
+Personal Claude Code `~/.claude.json` entry:
 
 ```json
 "zoom": {
   "type": "stdio",
-  "command": "uv",
-  "args": ["run", "--directory", "/Users/jack.vojak/Projects/zoom-mcp", "zoom-mcp"]
+  "command": "/Users/jack.vojak/.local/bin/uv",
+  "args": ["run", "--frozen", "--directory", "/Users/jack.vojak/Projects/zoom-mcp", "zoom-mcp"],
+  "env": { "ZOOM_MCP_TIER": "claude-code" }
 }
 ```
 

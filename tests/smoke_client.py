@@ -36,6 +36,10 @@ async def main(image: str, out_dir: Path) -> None:
             await session.initialize()
             tools = await session.list_tools()
             print("tools:", [t.name for t in tools.tools])
+            zoom_schema = next(t for t in tools.tools if t.name == "zoom").input_schema
+            props = zoom_schema["properties"]
+            print("region enum:", (props["region"].get("enum") or [a.get("enum") for a in props["region"].get("anyOf", [])]))
+            print("coords enum:", props["coords"].get("enum"))
 
             print("\n== image_info ==")
             r = await session.call_tool("image_info", {"image_path": image})
@@ -51,6 +55,24 @@ async def main(image: str, out_dir: Path) -> None:
                 {"image_path": image, "x1": 0.0, "y1": 0.6, "x2": 0.5, "y2": 1.0, "coords": "fraction", "grid": True},
             )
             _dump(r, out_dir / "zoom_grid.jpg")
+
+            print("\n== zoom_many: 3 row bands ==")
+            r = await session.call_tool(
+                "zoom_many",
+                {
+                    "image_path": image,
+                    "boxes": [[0, 0.13, 0.53, 0.35], [0, 0.35, 0.53, 0.6], [0, 0.6, 0.53, 0.97]],
+                    "labels": ["rows top", "rows middle", "rows bottom"],
+                    "coords": "fraction",
+                },
+            )
+            texts = [b for b in r.content if b.type == "text"]
+            imgs = [b for b in r.content if b.type == "image"]
+            for i, (t, im) in enumerate(zip(texts, imgs), 1):
+                print(t.text)
+                out = out_dir / f"many_{i}.jpg"
+                out.write_bytes(base64.b64decode(im.data))
+                print(f"-> wrote {out} ({out.stat().st_size // 1024} KB)")
 
             print("\n== error cases ==")
             r = await session.call_tool("zoom", {"image_path": image, "region": "nowhere"})

@@ -2,7 +2,9 @@
 
 All coordinates handed to and returned from these functions are in the pixel
 space of the ORIGINAL image, origin top-left. Crops are always taken from the
-full-resolution source, then upscaled to fill the visual token budget.
+full-resolution source, then upscaled to fill the visual token budget. When a
+grid is requested, the ruler margins are included in the budget so the final
+canvas never exceeds it.
 """
 
 from __future__ import annotations
@@ -21,11 +23,37 @@ MIN_BOX_SIDE = 64
 
 JPEG_QUALITY = 92
 
+RULER_TOP = 24
+"""Height of the top ruler margin when a grid is drawn."""
+
+RULER_MIN_LEFT = 24
+"""Minimum width of the left ruler margin; widened to fit the longest label."""
+
+DEFAULT_TIER = "claude-code"
+
 TIERS: dict[str, tuple[int, int]] = {
+    "claude-code": (2000, 4784),
     "high": (2576, 4784),
     "standard": (1568, 1568),
 }
-"""Tier name -> (max_edge, max_tokens)."""
+"""Tier name -> (max_edge, max_tokens). claude-code matches the long-edge cap
+Claude Code applies when displaying tool images."""
+
+REGION_NAMES = (
+    "top_left",
+    "top_right",
+    "bottom_left",
+    "bottom_right",
+    "center",
+    "left_half",
+    "right_half",
+    "top_half",
+    "bottom_half",
+    "x_axis",
+    "y_axis",
+    "legend_right",
+    "title",
+)
 
 REGIONS: dict[str, tuple[float, float, float, float]] = {
     "top_left": (0.0, 0.0, 0.5, 0.5),
@@ -57,6 +85,11 @@ class Budget:
         except KeyError:
             raise ValueError(f"Unknown tier {tier!r}; valid tiers: {', '.join(TIERS)}") from None
 
+    @property
+    def zoom3x_max_box(self) -> int:
+        """Widest original-pixel box that still reaches 3x magnification."""
+        return self.max_edge // 3
+
 
 def token_count(w: int, h: int) -> int:
     return math.ceil(w / PATCH) * math.ceil(h / PATCH)
@@ -70,27 +103,32 @@ def fits(w: int, h: int, budget: Budget) -> bool:
     )
 
 
-def resized_size(w: int, h: int, budget: Budget) -> tuple[int, int]:
+def resized_size(
+    w: int, h: int, budget: Budget, pad: tuple[int, int] = (0, 0)
+) -> tuple[int, int]:
     """Size the API would downscale (w, h) to. Unchanged if it already fits.
 
-    Otherwise the largest aspect-preserving width that fits, found by binary search.
+    Otherwise the largest aspect-preserving width that fits, found by binary
+    search. pad = (extra_width, extra_height) is reserved space (ruler margins)
+    that must fit alongside the content.
     """
-    if fits(w, h, budget):
+    pw, ph = pad
+    if fits(w + pw, h + ph, budget):
         return w, h
     lo, hi = 1, w
     while lo < hi:
         mid = (lo + hi + 1) // 2
         mh = max(1, round(h * mid / w))
-        if fits(mid, mh, budget):
+        if fits(mid + pw, mh + ph, budget):
             lo = mid
         else:
             hi = mid - 1
     return lo, max(1, round(h * lo / w))
 
 
-def zoom_size(w: int, h: int, budget: Budget) -> tuple[int, int]:
+def zoom_size(w: int, h: int, budget: Budget, pad: tuple[int, int] = (0, 0)) -> tuple[int, int]:
     """Largest aspect-preserving size within budget, regardless of source size."""
-    return resized_size(w * 10_000, h * 10_000, budget)
+    return resized_size(w * 10_000, h * 10_000, budget, pad)
 
 
 def flatten(img: Image.Image) -> Image.Image:
@@ -120,6 +158,11 @@ def fraction_box(
     x1: float, y1: float, x2: float, y2: float, w: int, h: int
 ) -> tuple[int, int, int, int]:
     return round(x1 * w), round(y1 * h), round(x2 * w), round(y2 * h)
+
+
+def looks_like_fraction(x1: float, y1: float, x2: float, y2: float) -> bool:
+    """True when a pixel-mode box is almost certainly fractional (all in 0..1)."""
+    return all(0 <= v <= 1 for v in (x1, y1, x2, y2)) and (x2, y2) != (0, 0)
 
 
 @dataclass(frozen=True)
@@ -154,11 +197,9 @@ def normalise_box(
             f"Empty box after clamping to {w}x{h}: got ({x1}, {y1}) to ({x2}, {y2}). "
             "Require x1 < x2 and y1 < y2 inside the image."
         )
-    padded = False
     ix1, ix2, p1 = _pad_span(ix1, ix2, w, min_side)
     iy1, iy2, p2 = _pad_span(iy1, iy2, h, min_side)
-    padded = p1 or p2
-    return Box(ix1, iy1, ix2, iy2, padded)
+    return Box(ix1, iy1, ix2, iy2, p1 or p2)
 
 
 def _pad_span(a: int, b: int, limit: int, min_len: int) -> tuple[int, int, bool]:
@@ -178,20 +219,15 @@ def _pad_span(a: int, b: int, limit: int, min_len: int) -> tuple[int, int, bool]
     return max(0, a), b, True
 
 
-def crop_and_zoom(img: Image.Image, box: Box, budget: Budget) -> Image.Image:
-    """Crop the full-resolution image to box and upscale to fill the budget."""
-    crop = img.crop((box.x1, box.y1, box.x2, box.y2))
-    target = zoom_size(box.width, box.height, budget)
-    return flatten(crop).resize(target, Image.LANCZOS)
-
-
-def overview(img: Image.Image, budget: Budget) -> Image.Image:
-    """The whole image downscaled to fit the budget (never upscaled)."""
-    target = resized_size(img.width, img.height, budget)
-    out = flatten(img)
-    if target != img.size:
-        out = out.resize(target, Image.LANCZOS)
-    return out
+def _resize(img: Image.Image, target: tuple[int, int]) -> Image.Image:
+    """LANCZOS resize, with an integer reduce() first on large downscales to
+    keep memory down."""
+    if img.size == target:
+        return img
+    k = min(img.width // target[0], img.height // target[1])
+    if k >= 2:
+        img = img.reduce(k)
+    return img.resize(target, Image.LANCZOS)
 
 
 def grid_step(span: int, target_lines: int = 10) -> int:
@@ -204,45 +240,104 @@ def grid_step(span: int, target_lines: int = 10) -> int:
     return int(10 * mag)
 
 
+@dataclass(frozen=True)
+class GridSpec:
+    step: int
+    font_px: int
+    left: int
+    top: int
+
+    @property
+    def pad(self) -> tuple[int, int]:
+        return self.left, self.top
+
+
+def grid_spec(box: Box, content_size: tuple[int, int], step: int | None = None) -> GridSpec:
+    """Choose step, font and ruler margins for a grid over box rendered at content_size."""
+    if step is None:
+        step = grid_step(max(box.width, box.height))
+    font_px = max(14, min(20, min(content_size) // 100))
+    font = ImageFont.load_default(size=font_px)
+    longest = str(max(box.x2, box.y2))
+    left = max(RULER_MIN_LEFT, math.ceil(font.getlength(longest)) + 8)
+    top = max(RULER_TOP, font_px + 8)
+    return GridSpec(step, font_px, left, top)
+
+
 def draw_grid(
     img: Image.Image,
     box: Box,
-    step: int | None = None,
+    spec: GridSpec,
     colour: tuple[int, int, int] = (0, 120, 255),
 ) -> Image.Image:
-    """Overlay a coordinate grid labelled in ORIGINAL pixel coordinates.
-
-    img is the rendered (cropped and rescaled) image; box is the original-pixel
-    region it depicts. Lines land on multiples of step in original space.
+    """Paste img onto a canvas with ruler margins and draw a grid labelled in
+    ORIGINAL pixel coordinates. img is the rendered crop; box is the
+    original-pixel region it depicts.
     """
-    out = img.copy()
-    draw = ImageDraw.Draw(out, "RGBA")
-    if step is None:
-        step = grid_step(max(box.width, box.height))
+    canvas = Image.new("RGB", (img.width + spec.left, img.height + spec.top), "white")
+    canvas.paste(img, (spec.left, spec.top))
+    draw = ImageDraw.Draw(canvas, "RGBA")
+    font = ImageFont.load_default(size=spec.font_px)
+    line = colour + (110,)
+    fg = colour + (255,)
     sx = img.width / box.width
     sy = img.height / box.height
-    font_px = max(10, min(18, img.width // 110))
-    font = ImageFont.load_default(size=font_px)
-    line = colour + (110,)
-    text_bg = (255, 255, 255, 200)
-    text_fg = colour + (255,)
+    draw.line([(spec.left, spec.top), (canvas.width, spec.top)], fill=fg, width=1)
+    draw.line([(spec.left, spec.top), (spec.left, canvas.height)], fill=fg, width=1)
 
-    first_x = math.ceil(box.x1 / step) * step
-    for gx in range(first_x, box.x2 + 1, step):
-        px = (gx - box.x1) * sx
-        draw.line([(px, 0), (px, img.height)], fill=line, width=1)
-        _label(draw, str(gx), (px + 2, 1), font, text_bg, text_fg)
+    for gx in range(math.ceil(box.x1 / spec.step) * spec.step, box.x2 + 1, spec.step):
+        px = spec.left + (gx - box.x1) * sx
+        draw.line([(px, spec.top), (px, canvas.height)], fill=line, width=1)
+        draw.text((px + 2, 2), str(gx), font=font, fill=fg)
 
-    first_y = math.ceil(box.y1 / step) * step
-    for gy in range(first_y, box.y2 + 1, step):
-        py = (gy - box.y1) * sy
-        draw.line([(0, py), (img.width, py)], fill=line, width=1)
-        _label(draw, str(gy), (1, py + 2), font, text_bg, text_fg)
-    return out
+    for gy in range(math.ceil(box.y1 / spec.step) * spec.step, box.y2 + 1, spec.step):
+        py = spec.top + (gy - box.y1) * sy
+        draw.line([(spec.left, py), (canvas.width, py)], fill=line, width=1)
+        draw.text((spec.left - 4, py + 1), str(gy), font=font, fill=fg, anchor="ra")
+    return canvas
 
 
-def _label(draw, text, xy, font, bg, fg):
-    x, y = xy
-    l, t, r, b = draw.textbbox((x, y), text, font=font)
-    draw.rectangle((l - 1, t - 1, r + 1, b + 1), fill=bg)
-    draw.text((x, y), text, font=font, fill=fg)
+@dataclass(frozen=True)
+class Rendered:
+    image: Image.Image
+    box: Box
+    content_size: tuple[int, int]
+    grid_step: int | None
+
+    @property
+    def scale(self) -> float:
+        return self.content_size[0] / self.box.width
+
+
+def render_zoom(img: Image.Image, box: Box, budget: Budget, grid: bool = False) -> Rendered:
+    """Crop the full-resolution image to box, upscale to fill the budget, and
+    optionally add a labelled grid. The whole canvas fits the budget."""
+    crop = flatten(img.crop((box.x1, box.y1, box.x2, box.y2)))
+    if not grid:
+        target = zoom_size(box.width, box.height, budget)
+        return Rendered(_resize(crop, target), box, target, None)
+    spec = grid_spec(box, zoom_size(box.width, box.height, budget))
+    target = zoom_size(box.width, box.height, budget, spec.pad)
+    out = draw_grid(_resize(crop, target), box, spec)
+    return Rendered(out, box, target, spec.step)
+
+
+def render_overview(
+    img: Image.Image, budget: Budget, grid: bool = True, step: int | None = None
+) -> Rendered:
+    """The whole image downscaled to fit the budget (never upscaled), with an
+    optional labelled grid. img may be lazily loaded; JPEG sources are decoded
+    at reduced scale where possible."""
+    full = Box(0, 0, img.width, img.height)
+    if grid:
+        spec = grid_spec(full, resized_size(img.width, img.height, budget), step)
+        target = resized_size(img.width, img.height, budget, spec.pad)
+    else:
+        spec = None
+        target = resized_size(img.width, img.height, budget)
+    if getattr(img, "format", None) == "JPEG":
+        img.draft("RGB", target)
+    out = _resize(flatten(img), target)
+    if spec is None:
+        return Rendered(out, full, target, None)
+    return Rendered(draw_grid(out, full, spec), full, target, spec.step)
