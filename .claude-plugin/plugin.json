@@ -1,0 +1,6 @@
+{
+  "name": "zoom-mcp",
+  "description": "Zoom into plot and figure images at full resolution so small text, ticks, legends and cell values can be read instead of guessed.",
+  "version": "0.1.0",
+  "author": { "name": "Jack Vojak" }
+}
