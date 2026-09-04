@@ -1,8 +1,9 @@
 # zoom-mcp
 
-An MCP server that lets Claude read fine detail in plot and figure images. Claude
-sees images downscaled to a token budget, so small tick labels, legend entries and
-heatmap cell values are often illegible. `zoom` crops from the full-resolution
+An MCP server that lets Claude resolve fine detail in any image: plots, charts,
+screenshots, diagrams, scans. Claude sees images downscaled to a token budget, so
+small text, individual data points, line crossings and small features are often
+unresolvable. `zoom` crops from the full-resolution
 original and upscales the crop to fill the budget. `image_info` returns the
 original size plus a gridded overview so every coordinate Claude reasons about
 is an original pixel coordinate.

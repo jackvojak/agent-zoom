@@ -1,7 +1,7 @@
 [project]
 name = "zoom-mcp"
 version = "0.1.0"
-description = "MCP server exposing zoom and image_info tools for inspecting fine detail in plot images"
+description = "MCP server exposing zoom and image_info tools for inspecting fine detail in any image"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Jack Vojak" }]

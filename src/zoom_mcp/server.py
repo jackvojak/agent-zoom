@@ -43,9 +43,10 @@ OPEN_ERRORS = (FileNotFoundError, UnidentifiedImageError, Image.DecompressionBom
 mcp = MCPServer(
     "zoom-mcp",
     instructions=(
-        "Tools for inspecting plot and figure images at full resolution. "
-        "Call image_info first to learn the original pixel size, then zoom into "
-        "regions before reading any small text or values."
+        "Tools for inspecting any image at full resolution: plots, charts, "
+        "screenshots, diagrams, scans. Call image_info first to learn the "
+        "original pixel size, then zoom into any region before drawing a "
+        "conclusion from fine detail."
     ),
 )
 
@@ -130,7 +131,8 @@ def image_info(image_path: str, grid: bool = True, grid_step: int | None = None)
     """Report an image's original size and return a downscaled overview with a
     coordinate grid labelled in ORIGINAL pixel coordinates.
 
-    Call this first for any image you intend to inspect. Use the grid labels to
+    Call this first for any image you intend to interpret closely (plot, chart,
+    screenshot, diagram, scan). Use the grid labels to
     choose pixel boxes for `zoom`. Set grid=False for a clean overview. grid_step
     overrides the automatic line spacing (in original pixels).
     """
@@ -168,14 +170,17 @@ def zoom(
     coords: Coords = "pixel",
     grid: bool = False,
 ) -> list[ContentBlock]:
-    """Zoom into a rectangular region of a plot or image, cropped from the
+    """Zoom into a rectangular region of any image, cropped from the
     full-resolution original and magnified to fill the image budget.
 
-    USE THIS BEFORE reading any small text, axis tick label, legend entry,
-    annotation, cell value or fine detail. Do not guess at small text from the
-    full view. Coordinates are absolute pixels of the ORIGINAL file, origin
-    top-left; call `image_info` first if you don't know the file's size. Zoom
-    again on a sub-region for finer detail.
+    USE THIS BEFORE interpreting any fine detail in an image: small text, axis
+    tick labels, legend entries, annotations, cell values, individual data
+    points, line crossings or intersections, where a curve meets a threshold,
+    marker shapes, small features in screenshots or diagrams, or anything you
+    would otherwise squint at. Do not guess from the full view; downscaled
+    images hide detail. Coordinates are absolute pixels of the ORIGINAL file,
+    origin top-left; call `image_info` first if you don't know the file's size.
+    Zoom again on a sub-region for finer detail.
 
     Args:
         image_path: Path to the image file.
