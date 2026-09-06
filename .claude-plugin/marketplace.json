@@ -1,6 +1,8 @@
 {
-  "name": "zoom-mcp",
-  "owner": { "name": "Jack Vojak" },
+  "name": "agent-zoom",
+  "owner": {
+    "name": "Jack Vojak"
+  },
   "metadata": {
     "description": "Full-resolution image zoom tools for Claude Code."
   },

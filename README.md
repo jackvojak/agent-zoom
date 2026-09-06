@@ -1,4 +1,4 @@
-# zoom-mcp
+# agent-zoom
 
 An MCP server that lets Claude resolve fine detail in any image: plots, charts,
 screenshots, diagrams, scans. Claude sees images downscaled to a token budget, so
@@ -35,19 +35,23 @@ Requires [uv](https://docs.astral.sh/uv/) on PATH. The plugin bundles three thin
 the MCP server, the `/zoom:inspect` skill, and a hook that reminds Claude to zoom
 whenever it reads an image file.
 
-Push this repo to your git host, then in Claude Code:
+In Claude Code, add the marketplace with whichever URL form matches how you
+authenticate to GitLab, then install:
 
 ```
-/plugin marketplace add <org>/zoom-mcp            # GitHub shorthand
-/plugin marketplace add https://<host>/<org>/zoom-mcp.git   # GitLab or any git URL
-/plugin install zoom@zoom-mcp
+/plugin marketplace add git@gitlab.com:mccraetech/orchestral/playground/personal-projects/jack-vojak/agent-zoom.git     # SSH
+/plugin marketplace add https://gitlab.com/mccraetech/orchestral/playground/personal-projects/jack-vojak/agent-zoom.git   # HTTPS
+/plugin install zoom@agent-zoom
 ```
+
+Then restart Claude Code (`/exit`, then `claude`). The MCP server, skill and
+hook only load on startup, so the tools will not appear until you do.
 
 From a local checkout instead:
 
 ```
-/plugin marketplace add /path/to/zoom-mcp
-/plugin install zoom@zoom-mcp
+/plugin marketplace add /path/to/agent-zoom
+/plugin install zoom@agent-zoom
 ```
 
 The first launch creates a virtual environment inside the plugin cache from
@@ -67,16 +71,19 @@ To recommend the plugin to everyone working in a repo, add to that repo's
 `.claude/settings.json`:
 
 ```json
-"extraKnownMarketplaces": ["<org>/zoom-mcp"],
-"enabledPlugins": { "zoom@zoom-mcp": true }
+"extraKnownMarketplaces": { "agent-zoom": { "source": { "source": "git", "url": "https://gitlab.com/mccraetech/orchestral/playground/personal-projects/jack-vojak/agent-zoom.git" } } },
+"enabledPlugins": { "zoom@agent-zoom": true }
 ```
 
 ## Manual install (no plugin)
 
+The plugin path above is the supported one. Use this only if you cannot install
+plugins. Do not combine the two, or the tools appear twice under different names.
+
 ```bash
-git clone <remote> ~/Projects/zoom-mcp
-claude mcp add-json --scope user zoom '{"type":"stdio","command":"uv","args":["run","--frozen","--directory","'"$HOME"'/Projects/zoom-mcp","zoom-mcp"],"env":{"ZOOM_MCP_TIER":"claude-code"}}'
-ln -s ~/Projects/zoom-mcp/skills/inspect ~/.claude/skills/inspect
+git clone git@gitlab.com:mccraetech/orchestral/playground/personal-projects/jack-vojak/agent-zoom.git ~/Projects/agent-zoom
+claude mcp add-json --scope user zoom '{"type":"stdio","command":"uv","args":["run","--frozen","--directory","'"$HOME"'/Projects/agent-zoom","zoom-mcp"],"env":{"ZOOM_MCP_TIER":"claude-code"}}'
+ln -s ~/Projects/agent-zoom/skills/inspect ~/.claude/skills/inspect
 ```
 
 If `uv` is not on the PATH Claude Code sees, use its absolute path as `command`.
