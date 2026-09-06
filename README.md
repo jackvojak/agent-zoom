@@ -8,6 +8,10 @@ original and upscales the crop to fill the budget. `image_info` returns the
 original size plus a gridded overview so every coordinate Claude reasons about
 is an original pixel coordinate.
 
+The approach follows Anthropic's crop-tool cookbook notebook, adapted for the
+Claude Code harness and packaged as a plugin:
+https://github.com/anthropics/claude-cookbooks/blob/main/multimodal/crop_tool.ipynb
+
 ## Tools
 
 - `image_info(image_path, grid=True, grid_step=None)`: original width, height,
