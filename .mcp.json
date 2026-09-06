@@ -1,10 +1,18 @@
 {
   "mcpServers": {
-    "zoom": {
+    "img": {
       "type": "stdio",
       "command": "uv",
-      "args": ["run", "--frozen", "--directory", "${CLAUDE_PLUGIN_ROOT}", "zoom-mcp"],
-      "env": { "ZOOM_MCP_TIER": "claude-code" }
+      "args": [
+        "run",
+        "--frozen",
+        "--directory",
+        "${CLAUDE_PLUGIN_ROOT}",
+        "zoom-mcp"
+      ],
+      "env": {
+        "ZOOM_MCP_TIER": "claude-code"
+      }
     }
   }
 }

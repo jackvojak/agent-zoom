@@ -53,12 +53,14 @@ From a local checkout instead:
 The first launch creates a virtual environment inside the plugin cache from
 `uv.lock`, so it takes a few seconds; later launches are instant.
 
-Plugins cannot grant tool permissions, so to avoid a prompt on every call add an
-allow rule to `~/.claude/settings.json`. Run `/mcp` once to see the server's
-exact tool prefix, then:
+Plugin tools are namespaced `mcp__plugin_<plugin>_<server>__<tool>`, so the
+three tools appear as `mcp__plugin_zoom_img__image_info`,
+`mcp__plugin_zoom_img__zoom` and `mcp__plugin_zoom_img__zoom_many`, and the
+skill as `/zoom:zoom`. Plugins cannot grant tool permissions, so to avoid a
+prompt on every call add an allow rule to `~/.claude/settings.json`:
 
 ```json
-"permissions": { "allow": ["mcp__<prefix>__image_info", "mcp__<prefix>__zoom", "mcp__<prefix>__zoom_many"] }
+"permissions": { "allow": ["mcp__plugin_zoom_img__image_info", "mcp__plugin_zoom_img__zoom", "mcp__plugin_zoom_img__zoom_many"] }
 ```
 
 To recommend the plugin to everyone working in a repo, add to that repo's
