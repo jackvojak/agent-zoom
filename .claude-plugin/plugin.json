@@ -1,7 +1,7 @@
 {
   "name": "zoom",
-  "description": "Zoom into any image at full resolution so fine detail (small text, data points, line crossings, legends, cell values, small features) is read instead of guessed. Ships the zoom MCP server, the /zoom skill and a Read hook that prompts zooming on images.",
-  "version": "0.2.1",
+  "description": "Zoom into any image at full resolution so fine detail (small text, data points, line crossings, legends, cell values, small features) is read instead of guessed. Ships the zoom MCP server, the /zoom:inspect skill and a Read hook that prompts zooming on images.",
+  "version": "0.3.0",
   "author": {
     "name": "Jack Vojak"
   },

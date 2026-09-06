@@ -8,7 +8,7 @@
     {
       "name": "zoom",
       "source": "./",
-      "description": "Zoom MCP server, /zoom skill and image-read hook."
+      "description": "Zoom MCP server, /zoom:inspect skill and image-read hook."
     }
   ]
 }

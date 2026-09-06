@@ -32,7 +32,7 @@ matches what Claude Code displays), `high` (2576 px) or `standard` (1568 px).
 ## Install as a Claude Code plugin (recommended)
 
 Requires [uv](https://docs.astral.sh/uv/) on PATH. The plugin bundles three things:
-the MCP server, the `/zoom:zoom` skill, and a hook that reminds Claude to zoom
+the MCP server, the `/zoom:inspect` skill, and a hook that reminds Claude to zoom
 whenever it reads an image file.
 
 Push this repo to your git host, then in Claude Code:
@@ -56,7 +56,7 @@ The first launch creates a virtual environment inside the plugin cache from
 Plugin tools are namespaced `mcp__plugin_<plugin>_<server>__<tool>`, so the
 three tools appear as `mcp__plugin_zoom_img__image_info`,
 `mcp__plugin_zoom_img__zoom` and `mcp__plugin_zoom_img__zoom_many`, and the
-skill as `/zoom:zoom`. Plugins cannot grant tool permissions, so to avoid a
+skill as `/zoom:inspect`. Plugins cannot grant tool permissions, so to avoid a
 prompt on every call add an allow rule to `~/.claude/settings.json`:
 
 ```json
@@ -76,19 +76,19 @@ To recommend the plugin to everyone working in a repo, add to that repo's
 ```bash
 git clone <remote> ~/Projects/zoom-mcp
 claude mcp add-json --scope user zoom '{"type":"stdio","command":"uv","args":["run","--frozen","--directory","'"$HOME"'/Projects/zoom-mcp","zoom-mcp"],"env":{"ZOOM_MCP_TIER":"claude-code"}}'
-ln -s ~/Projects/zoom-mcp/skills/zoom ~/.claude/skills/zoom
+ln -s ~/Projects/zoom-mcp/skills/inspect ~/.claude/skills/inspect
 ```
 
 If `uv` is not on the PATH Claude Code sees, use its absolute path as `command`.
 The tools then appear as `mcp__zoom__image_info`, `mcp__zoom__zoom` and
-`mcp__zoom__zoom_many`, and the skill as `/zoom`. To get the image-read
+`mcp__zoom__zoom_many`, and the skill as `/inspect`. To get the image-read
 reminder as well, copy `hooks/zoom-reminder.sh` somewhere stable and wire it
 as a `PostToolUse` hook with matcher `Read` in `~/.claude/settings.json`.
 
 ## Making the zoom automatic
 
 The plugin nudges Claude to zoom without being asked, through three layers:
-tool docstrings and server instructions, the `/zoom:zoom` skill description,
+tool docstrings and server instructions, the `/zoom:inspect` skill description,
 and the Read hook. For the strongest effect add a standing rule to your
 `~/.claude/CLAUDE.md`:
 

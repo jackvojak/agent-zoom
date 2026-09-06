@@ -1,6 +1,6 @@
 ---
-name: zoom
-description: "Interpret an image carefully: read it, describe it, zoom into any region where fine detail matters (small text, data points, line crossings, threshold intersections, small features) with the zoom MCP tool, and report what it shows and whether it supports the stated claim. Use when the user types /zoom <image_path> [claim], or asks to check, read, verify or interpret a chart, plot, heatmap, screenshot or diagram."
+name: inspect
+description: "Interpret an image carefully: read it, describe it, zoom into any region where fine detail matters (small text, data points, line crossings, threshold intersections, small features) with the zoom MCP tool, and report what it shows and whether it supports the stated claim. Use when the user types /zoom:inspect <image_path> [claim], or asks to check, read, verify or interpret a chart, plot, heatmap, screenshot or diagram."
 argument-hint: "<image_path> [claim]"
 ---
 
