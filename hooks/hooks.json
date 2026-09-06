@@ -1,0 +1,17 @@
+{
+  "description": "After Claude reads an image file, remind it to zoom before interpreting fine detail.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/zoom-reminder.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
