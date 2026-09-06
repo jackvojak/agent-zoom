@@ -12,6 +12,12 @@ The approach follows Anthropic's crop-tool cookbook notebook, adapted for the
 Claude Code harness and packaged as a plugin:
 https://github.com/anthropics/claude-cookbooks/blob/main/multimodal/crop_tool.ipynb
 
+The server is plain stdio MCP, so it could be pointed at other agents (Codex,
+Cursor and so on). The output sizes are tuned to how Claude encodes images,
+though, and other agents downscale differently. Supporting them would mean
+adding a tier per agent's image budget. It has not been tested or optimised for
+anything but Claude Code.
+
 ## Tools
 
 - `image_info(image_path, grid=True, grid_step=None)`: original width, height,
