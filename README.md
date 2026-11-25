@@ -10,7 +10,7 @@ is an original pixel coordinate.
 
 The approach follows Anthropic's crop-tool cookbook notebook, adapted for the
 Claude Code harness and packaged as a plugin:
-https://github.com/anthropics/claude-cookbooks/blob/main/multimodal/crop_mcctool.ipynb
+https://github.com/anthropics/claude-cookbooks/blob/main/multimodal/crop_tool.ipynb
 
 The server is plain stdio MCP, so it could be pointed at other agents (Codex,
 Cursor and so on). The output sizes are tuned to how Claude encodes images,
@@ -41,10 +41,10 @@ Requires [uv](https://docs.astral.sh/uv/) on PATH. The plugin bundles three thin
 the MCP server, the `/zoom:inspect` skill, and a hook that reminds Claude to zoom
 whenever it reads an image file.
 
-In Claude Code, add the marketplace with whichever URL form matches how you
-authenticate to GitLab, then install:
+In Claude Code, add the marketplace from GitHub, then install:
 
 ```
+/plugin marketplace add jackvojak/agent-zoom
 /plugin install zoom@agent-zoom
 ```
 
@@ -75,7 +75,8 @@ To recommend the plugin to everyone working in a repo, add to that repo's
 `.claude/settings.json`:
 
 ```json
-
+"extraKnownMarketplaces": { "agent-zoom": { "source": { "source": "github", "repo": "jackvojak/agent-zoom" } } },
+"enabledPlugins": { "zoom@agent-zoom": true }
 ```
 
 ## Manual install (no plugin)
@@ -84,7 +85,9 @@ The plugin path above is the supported one. Use this only if you cannot install
 plugins. Do not combine the two, or the tools appear twice under different names.
 
 ```bash
-
+git clone https://github.com/jackvojak/agent-zoom.git ~/Projects/agent-zoom
+claude mcp add-json --scope user zoom '{"type":"stdio","command":"uv","args":["run","--frozen","--directory","'"$HOME"'/Projects/agent-zoom","zoom-mcp"],"env":{"ZOOM_MCP_TIER":"claude-code"}}'
+ln -s ~/Projects/agent-zoom/skills/inspect ~/.claude/skills/inspect
 ```
 
 If `uv` is not on the PATH Claude Code sees, use its absolute path as `command`.
